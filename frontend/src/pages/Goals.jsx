@@ -63,7 +63,7 @@ export default function Goals({ refreshKey }) {
   const heroProgress = totalTarget > 0 ? Math.min((totalSaved / totalTarget) * 100, 100) : 0
 
   return (
-    <div className="px-4 pt-6 pb-4">
+    <div className="px-4 pt-6 pb-6 sm:px-6 sm:pt-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-[22px] font-extrabold text-white">Metas</h1>
@@ -108,7 +108,7 @@ export default function Goals({ refreshKey }) {
           <p className="text-sm">Nenhuma meta cadastrada ainda</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="sm:grid sm:grid-cols-2 sm:gap-4 space-y-3 sm:space-y-0">
           {goals.map(goal => {
             const progress  = Math.min((goal.current_amount / goal.target_amount) * 100, 100)
             const done      = progress >= 100

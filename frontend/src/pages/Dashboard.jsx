@@ -39,13 +39,12 @@ export default function Dashboard({ refreshKey }) {
     setMonth(d.toISOString().slice(0, 7))
   }
   const monthLabel = new Date(month + '-02').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
-
   const saved = data.income > 0 ? Math.round((1 - data.expenses / data.income) * 100) : 0
 
   return (
-    <div className="px-4 pt-6 pb-4">
+    <div className="px-4 pt-6 pb-6 sm:px-6 sm:pt-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div
             className="w-10 h-10 rounded-[14px] flex items-center justify-center text-white font-bold text-base shrink-0"
@@ -58,106 +57,147 @@ export default function Dashboard({ refreshKey }) {
             <p className="text-[15px] font-bold text-white leading-none">{name}</p>
           </div>
         </div>
-        <button className="relative w-10 h-10 rounded-full bg-white/5 border border-white/8 flex items-center justify-center text-zinc-400">
+        <button className="w-10 h-10 rounded-full bg-white/5 border border-white/8 flex items-center justify-center text-zinc-400">
           <Bell size={18} />
         </button>
       </div>
 
-      {/* Month selector */}
-      <div className="flex items-center justify-center gap-3 mb-4">
-        <button onClick={prevMonth} className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-zinc-400 active:bg-white/10">
+      {/* Month selector (mobile only — desktop shows it inside the grid) */}
+      <div className="flex items-center justify-center gap-3 mb-4 sm:hidden">
+        <button onClick={prevMonth} className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-zinc-400">
           <ChevronLeft size={16} />
         </button>
         <span className="text-[14px] font-semibold text-white capitalize w-36 text-center">{monthLabel}</span>
-        <button onClick={nextMonth} className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-zinc-400 active:bg-white/10">
+        <button onClick={nextMonth} className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-zinc-400">
           <ChevronRight size={16} />
         </button>
       </div>
 
-      {/* Hero balance card */}
-      <div
-        className="rounded-[28px] p-6 mb-4 relative overflow-hidden"
-        style={{
-          background: 'linear-gradient(140deg, var(--grad-from), var(--grad-to))',
-          boxShadow: '0 16px 48px var(--grad-glow)',
-        }}
-      >
-        {/* Decorative circles */}
-        <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white opacity-[0.08]" />
-        <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full bg-white opacity-[0.05]" />
-
-        <p className="text-[12px] font-semibold text-white/70 uppercase tracking-wide mb-2 relative">Saldo do mês</p>
-        <p className="text-[40px] font-extrabold text-white tabular-nums leading-none relative mb-3">
-          {loading ? '—' : fmt(data.balance)}
-        </p>
-        <div className="flex gap-2 relative">
-          <span className="text-[11px] font-bold text-white/80 bg-white/15 rounded-full px-3 py-1 whitespace-nowrap">
-            {saved > 0 ? `${saved}% poupado` : 'Sem economia'}
-          </span>
-        </div>
+      {/* ── Mobile: single column ── */}
+      <div className="sm:hidden space-y-4">
+        <HeroCard data={data} loading={loading} saved={saved} />
+        <MiniCards data={data} loading={loading} />
+        <DonutCard data={data} loading={loading} />
       </div>
 
-      {/* Mini cards */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <div className="rounded-[22px] bg-zinc-900/60 border border-white/8 p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-7 h-7 rounded-xl bg-emerald-500/15 flex items-center justify-center">
-              <TrendingUp size={14} className="text-emerald-400" />
-            </div>
-            <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">Receitas</span>
+      {/* ── Desktop: 2-column grid ── */}
+      <div className="hidden sm:grid sm:grid-cols-[1fr_380px] sm:gap-6 sm:items-start">
+        {/* Left column */}
+        <div className="space-y-5">
+          {/* Month selector */}
+          <div className="flex items-center gap-3">
+            <button onClick={prevMonth} className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-zinc-400 hover:bg-white/10 transition-colors">
+              <ChevronLeft size={16} />
+            </button>
+            <span className="text-[15px] font-semibold text-white capitalize">{monthLabel}</span>
+            <button onClick={nextMonth} className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-zinc-400 hover:bg-white/10 transition-colors">
+              <ChevronRight size={16} />
+            </button>
           </div>
-          <p className="text-[22px] font-bold text-emerald-400 tabular-nums leading-none">
-            {loading ? '—' : fmt(data.income)}
-          </p>
-        </div>
-        <div className="rounded-[22px] bg-zinc-900/60 border border-white/8 p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-7 h-7 rounded-xl bg-rose-500/15 flex items-center justify-center">
-              <TrendingDown size={14} className="text-rose-400" />
-            </div>
-            <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">Gastos</span>
-          </div>
-          <p className="text-[22px] font-bold text-rose-400 tabular-nums leading-none">
-            {loading ? '—' : fmt(data.expenses)}
-          </p>
-        </div>
-      </div>
 
-      {/* Category donut card */}
-      <div className="rounded-[22px] bg-zinc-900/60 border border-white/8 p-5">
-        <p className="text-[13px] font-bold text-white mb-4">Gastos por Categoria</p>
-        {loading ? (
-          <div className="h-32 flex items-center justify-center text-zinc-600 text-sm">Carregando...</div>
-        ) : data.byCategory.length === 0 ? (
-          <div className="h-32 flex items-center justify-center text-zinc-600 text-sm">
-            Nenhum gasto registrado
-          </div>
-        ) : (
-          <DonutChart categories={data.byCategory} total={data.expenses} />
-        )}
+          <HeroCard data={data} loading={loading} saved={saved} />
+          <MiniCards data={data} loading={loading} />
+        </div>
+
+        {/* Right column */}
+        <div>
+          <DonutCard data={data} loading={loading} />
+        </div>
       </div>
     </div>
   )
 }
 
+function HeroCard({ data, loading, saved }) {
+  return (
+    <div
+      className="rounded-[28px] p-6 relative overflow-hidden"
+      style={{
+        background: 'linear-gradient(140deg, var(--grad-from), var(--grad-to))',
+        boxShadow: '0 16px 48px var(--grad-glow)',
+      }}
+    >
+      <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white opacity-[0.08]" />
+      <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full bg-white opacity-[0.05]" />
+      <p className="text-[12px] font-semibold text-white/70 uppercase tracking-wide mb-2 relative">Saldo do mês</p>
+      <p className="text-[40px] font-extrabold text-white tabular-nums leading-none relative mb-3">
+        {loading ? '—' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(data.balance || 0)}
+      </p>
+      <div className="flex gap-2 relative">
+        <span className="text-[11px] font-bold text-white/80 bg-white/15 rounded-full px-3 py-1 whitespace-nowrap">
+          {saved > 0 ? `${saved}% poupado` : 'Sem economia'}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function MiniCards({ data, loading }) {
+  const fmt = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <div className="rounded-[22px] bg-zinc-900/60 border border-white/8 p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-7 h-7 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+            <TrendingUp size={14} className="text-emerald-400" />
+          </div>
+          <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">Receitas</span>
+        </div>
+        <p className="text-[22px] font-bold text-emerald-400 tabular-nums leading-none">
+          {loading ? '—' : fmt(data.income)}
+        </p>
+      </div>
+      <div className="rounded-[22px] bg-zinc-900/60 border border-white/8 p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-7 h-7 rounded-xl bg-rose-500/15 flex items-center justify-center">
+            <TrendingDown size={14} className="text-rose-400" />
+          </div>
+          <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">Gastos</span>
+        </div>
+        <p className="text-[22px] font-bold text-rose-400 tabular-nums leading-none">
+          {loading ? '—' : fmt(data.expenses)}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function DonutCard({ data, loading }) {
+  return (
+    <div className="rounded-[22px] bg-zinc-900/60 border border-white/8 p-5">
+      <p className="text-[13px] font-bold text-white mb-4">Gastos por Categoria</p>
+      {loading ? (
+        <div className="h-32 flex items-center justify-center text-zinc-600 text-sm">Carregando...</div>
+      ) : data.byCategory.length === 0 ? (
+        <div className="h-32 flex items-center justify-center text-zinc-600 text-sm">
+          Nenhum gasto registrado
+        </div>
+      ) : (
+        <DonutChart categories={data.byCategory} total={data.expenses} />
+      )}
+    </div>
+  )
+}
+
 function DonutChart({ categories, total }) {
-  const r   = 50
-  const sw  = 14
-  const sz  = 128
-  const cx  = sz / 2
+  const fmt  = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
+  const r    = 50
+  const sw   = 14
+  const sz   = 128
+  const cx   = sz / 2
   const circ = 2 * Math.PI * r
   const top5 = categories.slice(0, 5)
 
   let accum = 0
   const segs = top5.map(cat => {
-    const len  = total > 0 ? (cat.total / total) * circ : 0
-    const seg  = {
-      color:       cat.color,
-      dasharray:   `${len} ${circ}`,
-      dashoffset:  -accum,
-      name:        cat.name,
-      pct:         total > 0 ? Math.round((cat.total / total) * 100) : 0,
-      total:       cat.total,
+    const len = total > 0 ? (cat.total / total) * circ : 0
+    const seg = {
+      color:      cat.color,
+      dasharray:  `${len} ${circ}`,
+      dashoffset: -accum,
+      name:       cat.name,
+      pct:        total > 0 ? Math.round((cat.total / total) * 100) : 0,
+      total:      cat.total,
     }
     accum += len
     return seg
@@ -165,7 +205,6 @@ function DonutChart({ categories, total }) {
 
   return (
     <div className="flex gap-4 items-center">
-      {/* Donut */}
       <div className="relative shrink-0" style={{ width: sz, height: sz }}>
         <svg width={sz} height={sz} style={{ transform: 'rotate(-90deg)' }}>
           <circle cx={cx} cy={cx} r={r} fill="none" stroke="#27272a" strokeWidth={sw} />
@@ -188,7 +227,6 @@ function DonutChart({ categories, total }) {
         </div>
       </div>
 
-      {/* Legend */}
       <div className="flex-1 space-y-2.5 min-w-0">
         {segs.map((seg, i) => (
           <div key={i} className="flex items-center gap-2">

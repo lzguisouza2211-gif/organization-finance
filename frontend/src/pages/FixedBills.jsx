@@ -93,7 +93,7 @@ export default function FixedBills({ refreshKey }) {
   const field = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }))
 
   return (
-    <div className="px-4 pt-6 pb-4">
+    <div className="px-4 pt-6 pb-6 sm:px-6 sm:pt-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-5 gap-2">
         <div>

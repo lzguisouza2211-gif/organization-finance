@@ -65,7 +65,7 @@ export default function Debts({ refreshKey }) {
   const heroProgress = totalDebt > 0 ? Math.min((totalPaid / totalDebt) * 100, 100) : 0
 
   return (
-    <div className="px-4 pt-6 pb-4">
+    <div className="px-4 pt-6 pb-6 sm:px-6 sm:pt-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-[22px] font-extrabold text-white">Dívidas</h1>
@@ -108,7 +108,7 @@ export default function Debts({ refreshKey }) {
           <p className="text-sm">Nenhuma dívida cadastrada</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="sm:grid sm:grid-cols-2 sm:gap-4 space-y-3 sm:space-y-0">
           {debts.map(debt => {
             const progress   = Math.min((debt.paid_amount / debt.total_amount) * 100, 100)
             const quitado    = progress >= 100

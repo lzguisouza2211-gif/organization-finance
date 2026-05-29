@@ -97,7 +97,7 @@ export default function Transactions({ refreshKey }) {
   const monthLabel = new Date(month + '-02').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 
   return (
-    <div className="px-4 pt-6 pb-4">
+    <div className="px-4 pt-6 pb-6 sm:px-6 sm:pt-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-[22px] font-extrabold text-white">Lançamentos</h1>
