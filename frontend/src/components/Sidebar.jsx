@@ -1,85 +1,41 @@
-import { LayoutDashboard, ArrowLeftRight, Target, CreditCard, CalendarCheck, LogOut } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { LayoutDashboard, ArrowLeftRight, Target, CreditCard, CalendarCheck } from 'lucide-react'
 
 const nav = [
-  { id: 'dashboard',    label: 'Dashboard',    Icon: LayoutDashboard },
-  { id: 'transactions', label: 'Lançamentos',  Icon: ArrowLeftRight  },
-  { id: 'fixedbills',   label: 'Contas',       Icon: CalendarCheck   },
-  { id: 'goals',        label: 'Metas',        Icon: Target          },
-  { id: 'debts',        label: 'Dívidas',      Icon: CreditCard      },
+  { id: 'dashboard',    label: 'Início',      Icon: LayoutDashboard },
+  { id: 'transactions', label: 'Lançamentos', Icon: ArrowLeftRight  },
+  { id: 'fixedbills',   label: 'Contas',      Icon: CalendarCheck   },
+  { id: 'goals',        label: 'Metas',       Icon: Target          },
+  { id: 'debts',        label: 'Dívidas',     Icon: CreditCard      },
 ]
 
-const signOut = () => supabase.auth.signOut()
-
-export default function Sidebar({ currentPage, onNavigate }) {
+export default function BottomNav({ currentPage, onNavigate }) {
   return (
-    <>
-      {/* ── Desktop: lateral ── */}
-      <aside className="hidden md:flex w-60 bg-gray-900 flex-col shrink-0">
-        <div className="px-6 py-6 border-b border-gray-800">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-indigo-500 rounded-xl flex items-center justify-center shrink-0">
-              <span className="text-white font-black text-base">$</span>
-            </div>
-            <div>
-              <p className="text-white font-bold text-sm leading-tight">Finanças</p>
-              <p className="text-gray-500 text-xs">Pessoais</p>
-            </div>
-          </div>
-        </div>
-
-        <nav className="flex-1 px-3 py-4 space-y-1">
-          {nav.map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              onClick={() => onNavigate(id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                currentPage === id
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
-              }`}
-            >
-              <Icon size={17} strokeWidth={2} />
+    <nav className="absolute bottom-0 left-0 right-0 z-40">
+      <div className="mx-3 mb-3 rounded-[26px] bg-zinc-900/80 backdrop-blur-xl border border-white/10 shadow-2xl px-1.5 py-1.5 flex">
+        {nav.map(({ id, label, Icon }) => (
+          <button
+            key={id}
+            onClick={() => onNavigate(id)}
+            className="flex-1 flex flex-col items-center gap-1 py-1 min-h-[44px] justify-center"
+          >
+            {currentPage === id ? (
+              <div
+                className="w-9 h-7 rounded-full flex items-center justify-center"
+                style={{ background: 'linear-gradient(135deg, var(--grad-from), var(--grad-to))' }}
+              >
+                <Icon size={16} strokeWidth={2.2} className="text-white" />
+              </div>
+            ) : (
+              <div className="w-9 h-7 flex items-center justify-center">
+                <Icon size={19} strokeWidth={1.8} className="text-zinc-500" />
+              </div>
+            )}
+            <span className={`text-[9.5px] font-medium leading-none ${currentPage === id ? 'text-white' : 'text-zinc-500'}`}>
               {label}
-            </button>
-          ))}
-        </nav>
-
-        <div className="px-3 py-4 border-t border-gray-800">
-          <button
-            onClick={signOut}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-400 hover:bg-gray-800 hover:text-red-400 transition-all"
-          >
-            <LogOut size={17} strokeWidth={2} />
-            Sair
+            </span>
           </button>
-        </div>
-      </aside>
-
-      {/* ── Mobile: bottom nav ── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-gray-900 border-t border-gray-800">
-        <div className="flex">
-          {nav.map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              onClick={() => onNavigate(id)}
-              className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 text-xs font-medium transition-colors ${
-                currentPage === id ? 'text-indigo-400' : 'text-gray-500 active:text-gray-300'
-              }`}
-            >
-              <Icon size={20} strokeWidth={currentPage === id ? 2.5 : 1.8} />
-              <span className="leading-none">{label}</span>
-            </button>
-          ))}
-          <button
-            onClick={signOut}
-            className="flex-1 flex flex-col items-center justify-center gap-1 py-2.5 text-xs font-medium text-gray-500 active:text-red-400 transition-colors"
-          >
-            <LogOut size={20} strokeWidth={1.8} />
-            <span className="leading-none">Sair</span>
-          </button>
-        </div>
-      </nav>
-    </>
+        ))}
+      </div>
+    </nav>
   )
 }

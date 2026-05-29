@@ -1,159 +1,213 @@
 import { useState, useEffect } from 'react'
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
-import { TrendingUp, TrendingDown, Wallet } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Bell, TrendingUp, TrendingDown } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
 import { api } from '../api'
 
 const fmt = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
 const currentMonth = () => new Date().toISOString().slice(0, 7)
 
-export default function Dashboard() {
-  const [month, setMonth] = useState(currentMonth)
-  const [data, setData]   = useState({ income: 0, expenses: 0, balance: 0, byCategory: [] })
+function greeting() {
+  const h = new Date().getHours()
+  if (h < 12) return 'Bom dia'
+  if (h < 18) return 'Boa tarde'
+  return 'Boa noite'
+}
+
+export default function Dashboard({ refreshKey }) {
+  const { session } = useAuth()
+  const [month,   setMonth]   = useState(currentMonth)
+  const [data,    setData]    = useState({ income: 0, expenses: 0, balance: 0, byCategory: [] })
   const [loading, setLoading] = useState(true)
-  const [error, setError]     = useState(null)
+
+  const name = session?.user?.email?.split('@')[0] || 'Você'
 
   useEffect(() => {
     setLoading(true)
-    setError(null)
     api.getDashboard(month)
       .then(setData)
-      .catch(() => setError('Não foi possível conectar ao backend.'))
       .finally(() => setLoading(false))
-  }, [month])
+  }, [month, refreshKey])
 
+  const prevMonth = () => {
+    const d = new Date(month + '-02')
+    d.setMonth(d.getMonth() - 1)
+    setMonth(d.toISOString().slice(0, 7))
+  }
+  const nextMonth = () => {
+    const d = new Date(month + '-02')
+    d.setMonth(d.getMonth() + 1)
+    setMonth(d.toISOString().slice(0, 7))
+  }
   const monthLabel = new Date(month + '-02').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 
+  const saved = data.income > 0 ? Math.round((1 - data.expenses / data.income) * 100) : 0
+
   return (
-    <div className="p-4 md:p-8">
+    <div className="px-4 pt-6 pb-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 md:mb-8">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-400 text-sm mt-0.5 capitalize">{monthLabel}</p>
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-3">
+          <div
+            className="w-10 h-10 rounded-[14px] flex items-center justify-center text-white font-bold text-base shrink-0"
+            style={{ background: 'linear-gradient(135deg, var(--grad-from), var(--grad-to))' }}
+          >
+            {name.charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <p className="text-[11px] text-zinc-500 font-medium leading-none mb-0.5">{greeting()}</p>
+            <p className="text-[15px] font-bold text-white leading-none">{name}</p>
+          </div>
         </div>
-        <input
-          type="month"
-          value={month}
-          onChange={e => setMonth(e.target.value)}
-          className="w-full sm:w-auto border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
+        <button className="relative w-10 h-10 rounded-full bg-white/5 border border-white/8 flex items-center justify-center text-zinc-400">
+          <Bell size={18} />
+        </button>
       </div>
 
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">{error}</div>
-      )}
-
-      {/* Metric cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 md:mb-8">
-        <Card title="Receitas"  value={data.income}   icon={<TrendingUp size={18}  />} scheme="green"  />
-        <Card title="Gastos"    value={data.expenses} icon={<TrendingDown size={18} />} scheme="red"    />
-        <Card title="Saldo"     value={data.balance}  icon={<Wallet size={18}       />} scheme={data.balance >= 0 ? 'indigo' : 'orange'} />
+      {/* Month selector */}
+      <div className="flex items-center justify-center gap-3 mb-4">
+        <button onClick={prevMonth} className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-zinc-400 active:bg-white/10">
+          <ChevronLeft size={16} />
+        </button>
+        <span className="text-[14px] font-semibold text-white capitalize w-36 text-center">{monthLabel}</span>
+        <button onClick={nextMonth} className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-zinc-400 active:bg-white/10">
+          <ChevronRight size={16} />
+        </button>
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 md:gap-5">
-        {/* Pie chart */}
-        <div className="md:col-span-3 bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-gray-100">
-          <h2 className="text-sm font-semibold text-gray-900 mb-4">Gastos por Categoria</h2>
-          {loading ? (
-            <div className="h-56 flex items-center justify-center text-gray-300 text-sm">Carregando...</div>
-          ) : data.byCategory.length === 0 ? (
-            <div className="h-56 flex items-center justify-center text-gray-300 text-sm">
-              Nenhum gasto registrado neste mês
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={240}>
-              <PieChart>
-                <Pie
-                  data={data.byCategory}
-                  dataKey="total"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={90}
-                  innerRadius={48}
-                  paddingAngle={2}
-                >
-                  {data.byCategory.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} strokeWidth={0} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(v) => fmt(v)}
-                  contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgb(0 0 0/.1)' }}
-                />
-                <Legend
-                  iconType="circle"
-                  iconSize={8}
-                  formatter={(v) => <span style={{ fontSize: 12, color: '#4b5563' }}>{v}</span>}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          )}
-        </div>
+      {/* Hero balance card */}
+      <div
+        className="rounded-[28px] p-6 mb-4 relative overflow-hidden"
+        style={{
+          background: 'linear-gradient(140deg, var(--grad-from), var(--grad-to))',
+          boxShadow: '0 16px 48px var(--grad-glow)',
+        }}
+      >
+        {/* Decorative circles */}
+        <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white opacity-[0.08]" />
+        <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full bg-white opacity-[0.05]" />
 
-        {/* Category breakdown */}
-        <div className="md:col-span-2 bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-gray-100">
-          <h2 className="text-sm font-semibold text-gray-900 mb-4">Detalhamento</h2>
-          {data.byCategory.length === 0 ? (
-            <p className="text-gray-300 text-sm">Nenhum dado</p>
-          ) : (
-            <div className="space-y-3">
-              {data.byCategory.map((cat, i) => (
-                <div key={i}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
-                    <span className="text-xs text-gray-600 flex-1 truncate">{cat.name}</span>
-                    <span className="text-xs font-semibold text-gray-800">{fmt(cat.total)}</span>
-                  </div>
-                  <div className="h-1.5 bg-gray-100 rounded-full ml-4">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        backgroundColor: cat.color,
-                        width: data.expenses > 0 ? `${(cat.total / data.expenses) * 100}%` : '0%',
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {data.expenses > 0 && (
-            <div className="mt-5 pt-4 border-t border-gray-100">
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-400">Total gastos</span>
-                <span className="font-semibold text-red-600">{fmt(data.expenses)}</span>
-              </div>
-              <div className="flex justify-between text-xs mt-1">
-                <span className="text-gray-400">Total receitas</span>
-                <span className="font-semibold text-emerald-600">{fmt(data.income)}</span>
-              </div>
-            </div>
-          )}
+        <p className="text-[12px] font-semibold text-white/70 uppercase tracking-wide mb-2 relative">Saldo do mês</p>
+        <p className="text-[40px] font-extrabold text-white tabular-nums leading-none relative mb-3">
+          {loading ? '—' : fmt(data.balance)}
+        </p>
+        <div className="flex gap-2 relative">
+          <span className="text-[11px] font-bold text-white/80 bg-white/15 rounded-full px-3 py-1 whitespace-nowrap">
+            {saved > 0 ? `${saved}% poupado` : 'Sem economia'}
+          </span>
         </div>
+      </div>
+
+      {/* Mini cards */}
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="rounded-[22px] bg-zinc-900/60 border border-white/8 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-7 h-7 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+              <TrendingUp size={14} className="text-emerald-400" />
+            </div>
+            <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">Receitas</span>
+          </div>
+          <p className="text-[22px] font-bold text-emerald-400 tabular-nums leading-none">
+            {loading ? '—' : fmt(data.income)}
+          </p>
+        </div>
+        <div className="rounded-[22px] bg-zinc-900/60 border border-white/8 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-7 h-7 rounded-xl bg-rose-500/15 flex items-center justify-center">
+              <TrendingDown size={14} className="text-rose-400" />
+            </div>
+            <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">Gastos</span>
+          </div>
+          <p className="text-[22px] font-bold text-rose-400 tabular-nums leading-none">
+            {loading ? '—' : fmt(data.expenses)}
+          </p>
+        </div>
+      </div>
+
+      {/* Category donut card */}
+      <div className="rounded-[22px] bg-zinc-900/60 border border-white/8 p-5">
+        <p className="text-[13px] font-bold text-white mb-4">Gastos por Categoria</p>
+        {loading ? (
+          <div className="h-32 flex items-center justify-center text-zinc-600 text-sm">Carregando...</div>
+        ) : data.byCategory.length === 0 ? (
+          <div className="h-32 flex items-center justify-center text-zinc-600 text-sm">
+            Nenhum gasto registrado
+          </div>
+        ) : (
+          <DonutChart categories={data.byCategory} total={data.expenses} />
+        )}
       </div>
     </div>
   )
 }
 
-const schemes = {
-  green:  { border: 'border-emerald-100', iconBg: 'bg-emerald-50', iconText: 'text-emerald-600', valueText: 'text-emerald-700' },
-  red:    { border: 'border-red-100',     iconBg: 'bg-red-50',     iconText: 'text-red-600',     valueText: 'text-red-700'     },
-  indigo: { border: 'border-indigo-100',  iconBg: 'bg-indigo-50',  iconText: 'text-indigo-600',  valueText: 'text-gray-900'    },
-  orange: { border: 'border-orange-100',  iconBg: 'bg-orange-50',  iconText: 'text-orange-600',  valueText: 'text-orange-700'  },
-}
+function DonutChart({ categories, total }) {
+  const r   = 50
+  const sw  = 14
+  const sz  = 128
+  const cx  = sz / 2
+  const circ = 2 * Math.PI * r
+  const top5 = categories.slice(0, 5)
 
-function Card({ title, value, icon, scheme }) {
-  const s = schemes[scheme] || schemes.indigo
+  let accum = 0
+  const segs = top5.map(cat => {
+    const len  = total > 0 ? (cat.total / total) * circ : 0
+    const seg  = {
+      color:       cat.color,
+      dasharray:   `${len} ${circ}`,
+      dashoffset:  -accum,
+      name:        cat.name,
+      pct:         total > 0 ? Math.round((cat.total / total) * 100) : 0,
+      total:       cat.total,
+    }
+    accum += len
+    return seg
+  })
+
   return (
-    <div className={`bg-white rounded-2xl p-4 md:p-5 shadow-sm border ${s.border}`}>
-      <div className="flex items-center justify-between mb-2 md:mb-3">
-        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">{title}</span>
-        <div className={`p-2 rounded-xl ${s.iconBg} ${s.iconText}`}>{icon}</div>
+    <div className="flex gap-4 items-center">
+      {/* Donut */}
+      <div className="relative shrink-0" style={{ width: sz, height: sz }}>
+        <svg width={sz} height={sz} style={{ transform: 'rotate(-90deg)' }}>
+          <circle cx={cx} cy={cx} r={r} fill="none" stroke="#27272a" strokeWidth={sw} />
+          {segs.map((seg, i) => (
+            <circle
+              key={i}
+              cx={cx} cy={cx} r={r}
+              fill="none"
+              stroke={seg.color}
+              strokeWidth={sw}
+              strokeDasharray={seg.dasharray}
+              strokeDashoffset={seg.dashoffset}
+            />
+          ))}
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-[9px] font-semibold text-zinc-500 uppercase tracking-wide">GASTOS</span>
+          <span className="text-[13px] font-bold text-white tabular-nums leading-tight">{fmt(total)}</span>
+          <span className="text-[9px] text-zinc-600">{top5.length} categ.</span>
+        </div>
       </div>
-      <p className={`text-xl md:text-2xl font-bold ${s.valueText}`}>{fmt(value)}</p>
+
+      {/* Legend */}
+      <div className="flex-1 space-y-2.5 min-w-0">
+        {segs.map((seg, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <div
+              className="w-7 h-7 rounded-xl shrink-0 flex items-center justify-center"
+              style={{ backgroundColor: seg.color + '25' }}
+            >
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: seg.color }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[12px] text-zinc-300 truncate">{seg.name}</span>
+                <span className="text-[11px] text-zinc-500 shrink-0">{seg.pct}%</span>
+              </div>
+              <span className="text-[11px] font-semibold text-white tabular-nums">{fmt(seg.total)}</span>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

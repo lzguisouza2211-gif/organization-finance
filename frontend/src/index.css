@@ -6,3 +6,25 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+:root {
+  --grad-from: #6366f1;
+  --grad-to:   #a855f7;
+  --grad-glow: rgba(139,92,246,0.40);
+}
+
+html, body { background: #050507; }
+
+body {
+  background-image: radial-gradient(120% 60% at 50% 0%, #14141c 0%, #060608 55%);
+  min-height: 100dvh;
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; }
+
+input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(.6); }

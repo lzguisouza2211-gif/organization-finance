@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react'
-import { Plus, Trash2, ArrowUpCircle, ArrowDownCircle, Receipt } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { ChevronLeft, ChevronRight, Receipt, Trash2,
+         ShoppingCart, Car, Home, Heart, Film, BookOpen,
+         Banknote, Zap, Utensils, ShoppingBag, Briefcase, Gift } from 'lucide-react'
 import { api } from '../api'
 import Modal from '../components/Modal'
 
@@ -10,7 +12,33 @@ const today    = () => new Date().toISOString().slice(0, 10)
 
 const EMPTY = { date: today(), amount: '', type: 'expense', category_id: '', description: '' }
 
-export default function Transactions() {
+const inputCls = 'w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-[15px] text-white placeholder-zinc-600 focus:outline-none focus:border-[var(--grad-to)]'
+const labelCls = 'block text-[12px] font-semibold text-zinc-400 mb-1.5'
+
+const CAT_ICONS = {
+  Alimentação:  ShoppingCart,
+  Transporte:   Car,
+  Moradia:      Home,
+  Saúde:        Heart,
+  Lazer:        Film,
+  Educação:     BookOpen,
+  Salário:      Banknote,
+  Energia:      Zap,
+  Restaurante:  Utensils,
+  Compras:      ShoppingBag,
+  Trabalho:     Briefcase,
+  Presente:     Gift,
+}
+
+function getCatIcon(name) {
+  if (!name) return Receipt
+  for (const [key, Icon] of Object.entries(CAT_ICONS)) {
+    if (name.toLowerCase().includes(key.toLowerCase())) return Icon
+  }
+  return Receipt
+}
+
+export default function Transactions({ refreshKey }) {
   const [month,        setMonth]        = useState(curMonth)
   const [transactions, setTransactions] = useState([])
   const [categories,   setCategories]   = useState([])
@@ -19,10 +47,10 @@ export default function Transactions() {
   const [saving,       setSaving]       = useState(false)
 
   useEffect(() => { api.getCategories().then(setCategories) }, [])
-  useEffect(() => { api.getTransactions(month).then(setTransactions) }, [month])
+  useEffect(() => { api.getTransactions(month).then(setTransactions) }, [month, refreshKey])
 
   const filtered = categories.filter(c => c.type === form.type || c.type === 'both')
-  const field = (key) => (e) => setForm(f => ({ ...f, [key]: e.target.value }))
+  const field    = (key) => (e) => setForm(f => ({ ...f, [key]: e.target.value }))
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -45,172 +73,227 @@ export default function Transactions() {
 
   const income   = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
   const expenses = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
+  const balance  = income - expenses
+
+  // Group by date
+  const groups = transactions.reduce((acc, tx) => {
+    const d = tx.date
+    if (!acc[d]) acc[d] = []
+    acc[d].push(tx)
+    return acc
+  }, {})
+  const sortedDates = Object.keys(groups).sort((a, b) => b.localeCompare(a))
+
+  const prevMonth = () => {
+    const d = new Date(month + '-02')
+    d.setMonth(d.getMonth() - 1)
+    setMonth(d.toISOString().slice(0, 7))
+  }
+  const nextMonth = () => {
+    const d = new Date(month + '-02')
+    d.setMonth(d.getMonth() + 1)
+    setMonth(d.toISOString().slice(0, 7))
+  }
+  const monthLabel = new Date(month + '-02').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="px-4 pt-6 pb-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 md:mb-6">
-        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Lançamentos</h1>
-        <div className="flex gap-2">
-          <input
-            type="month" value={month} onChange={e => setMonth(e.target.value)}
-            className="flex-1 sm:flex-none border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-          <button
-            onClick={() => { setForm(EMPTY); setShowModal(true) }}
-            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3 md:px-4 py-2 rounded-xl text-sm font-medium transition-colors shrink-0"
-          >
-            <Plus size={15} /> <span className="hidden sm:inline">Nova Transação</span><span className="sm:hidden">Nova</span>
-          </button>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-[22px] font-extrabold text-white">Lançamentos</h1>
+        <button
+          onClick={() => { setForm(EMPTY); setShowModal(true) }}
+          className="h-9 px-4 rounded-full text-[13px] font-bold text-white flex items-center gap-1.5"
+          style={{ background: 'linear-gradient(135deg, var(--grad-from), var(--grad-to))' }}
+        >
+          + Nova
+        </button>
+      </div>
+
+      {/* Month picker */}
+      <div className="flex items-center justify-center gap-3 mb-4">
+        <button onClick={prevMonth} className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-zinc-400 active:bg-white/10">
+          <ChevronLeft size={16} />
+        </button>
+        <span className="text-[13px] font-semibold text-white capitalize w-36 text-center">{monthLabel}</span>
+        <button onClick={nextMonth} className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-zinc-400 active:bg-white/10">
+          <ChevronRight size={16} />
+        </button>
+      </div>
+
+      {/* Summary chips */}
+      <div className="grid grid-cols-3 gap-2 mb-5">
+        <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-2.5">
+          <p className="text-[10px] font-semibold text-emerald-400 mb-0.5">Receitas</p>
+          <p className="text-[14px] font-bold text-emerald-400 tabular-nums leading-none">{fmt(income)}</p>
+        </div>
+        <div className="rounded-2xl bg-rose-500/10 border border-rose-500/20 px-3 py-2.5">
+          <p className="text-[10px] font-semibold text-rose-400 mb-0.5">Gastos</p>
+          <p className="text-[14px] font-bold text-rose-400 tabular-nums leading-none">{fmt(expenses)}</p>
+        </div>
+        <div className={`rounded-2xl px-3 py-2.5 border ${balance >= 0 ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-orange-500/10 border-orange-500/20'}`}>
+          <p className={`text-[10px] font-semibold mb-0.5 ${balance >= 0 ? 'text-indigo-400' : 'text-orange-400'}`}>Saldo</p>
+          <p className={`text-[14px] font-bold tabular-nums leading-none ${balance >= 0 ? 'text-indigo-400' : 'text-orange-400'}`}>{fmt(balance)}</p>
         </div>
       </div>
 
-      {/* Summary */}
-      <div className="grid grid-cols-3 gap-2 md:gap-4 mb-5 md:mb-6">
-        <div className="bg-emerald-50 rounded-xl px-3 md:px-4 py-3">
-          <p className="text-xs font-medium text-emerald-600">Receitas</p>
-          <p className="text-base md:text-lg font-bold text-emerald-700 mt-0.5">{fmt(income)}</p>
+      {/* Grouped list */}
+      {transactions.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-zinc-600">
+          <Receipt size={40} className="mb-3" />
+          <p className="text-sm">Nenhuma transação neste mês</p>
         </div>
-        <div className="bg-red-50 rounded-xl px-3 md:px-4 py-3">
-          <p className="text-xs font-medium text-red-600">Gastos</p>
-          <p className="text-base md:text-lg font-bold text-red-700 mt-0.5">{fmt(expenses)}</p>
-        </div>
-        <div className={`${income - expenses >= 0 ? 'bg-indigo-50' : 'bg-orange-50'} rounded-xl px-3 md:px-4 py-3`}>
-          <p className={`text-xs font-medium ${income - expenses >= 0 ? 'text-indigo-600' : 'text-orange-600'}`}>Saldo</p>
-          <p className={`text-base md:text-lg font-bold mt-0.5 ${income - expenses >= 0 ? 'text-indigo-700' : 'text-orange-700'}`}>{fmt(income - expenses)}</p>
-        </div>
-      </div>
-
-      {/* Mobile: cards */}
-      <div className="md:hidden space-y-2">
-        {transactions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-gray-300">
-            <Receipt size={36} className="mb-2" />
-            <p className="text-sm">Nenhuma transação neste mês</p>
-          </div>
-        ) : transactions.map(tx => (
-          <div key={tx.id} className="bg-white rounded-xl border border-gray-100 px-4 py-3 flex items-center gap-3">
-            <div className={`p-2 rounded-xl shrink-0 ${tx.type === 'income' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-              {tx.type === 'income' ? <ArrowUpCircle size={18} /> : <ArrowDownCircle size={18} />}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{tx.description || '—'}</p>
-              <div className="flex items-center gap-2 mt-0.5">
-                {tx.category_color && (
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: tx.category_color }} />
-                )}
-                <p className="text-xs text-gray-400 truncate">{tx.category_name || '—'} · {fmtDate(tx.date)}</p>
+      ) : (
+        <div className="space-y-5">
+          {sortedDates.map(date => (
+            <div key={date}>
+              <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-wide mb-2">
+                {new Date(date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+              </p>
+              <div className="space-y-2">
+                {groups[date].map(tx => (
+                  <SwipeRow key={tx.id} tx={tx} onDelete={() => remove(tx.id)} />
+                ))}
               </div>
             </div>
-            <div className="text-right shrink-0">
-              <p className={`text-sm font-semibold ${tx.type === 'income' ? 'text-emerald-600' : 'text-red-600'}`}>
-                {tx.type === 'income' ? '+' : '−'}{fmt(tx.amount)}
-              </p>
-              <button onClick={() => remove(tx.id)} className="text-gray-300 hover:text-red-500 transition-colors mt-1">
-                <Trash2 size={14} />
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
-      {/* Desktop: table */}
-      <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        {transactions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-gray-300">
-            <Receipt size={40} className="mb-3" />
-            <p className="text-sm">Nenhuma transação neste mês</p>
-          </div>
-        ) : (
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50/50">
-                {['Data', 'Descrição', 'Categoria', 'Tipo', 'Valor', ''].map(h => (
-                  <th key={h} className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider last:w-10">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {transactions.map(tx => (
-                <tr key={tx.id} className="hover:bg-gray-50/60 transition-colors">
-                  <td className="px-5 py-3.5 text-sm text-gray-500 whitespace-nowrap">{fmtDate(tx.date)}</td>
-                  <td className="px-5 py-3.5 text-sm text-gray-900 font-medium max-w-[180px] truncate">{tx.description || '—'}</td>
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: tx.category_color || '#d1d5db' }} />
-                      <span className="text-sm text-gray-600 truncate max-w-[120px]">{tx.category_name || '—'}</span>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${tx.type === 'income' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                      {tx.type === 'income' ? <><ArrowUpCircle size={11} /> Receita</> : <><ArrowDownCircle size={11} /> Gasto</>}
-                    </span>
-                  </td>
-                  <td className={`px-5 py-3.5 text-sm font-semibold whitespace-nowrap ${tx.type === 'income' ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {tx.type === 'income' ? '+' : '−'} {fmt(tx.amount)}
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <button onClick={() => remove(tx.id)} className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
-                      <Trash2 size={14} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {/* Modal */}
+      {/* Sheet form */}
       {showModal && (
         <Modal title="Nova Transação" onClose={() => setShowModal(false)}>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 mt-2">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Tipo</label>
-                <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value, category_id: '' }))}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <label className={labelCls}>Tipo</label>
+                <select
+                  value={form.type}
+                  onChange={e => setForm(f => ({ ...f, type: e.target.value, category_id: '' }))}
+                  className={inputCls}
+                >
                   <option value="expense">Gasto</option>
                   <option value="income">Receita</option>
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Data</label>
-                <input type="date" value={form.date} onChange={field('date')} required
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <label className={labelCls}>Data</label>
+                <input type="date" value={form.date} onChange={field('date')} required className={inputCls} />
               </div>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Valor (R$)</label>
-              <input type="number" step="0.01" min="0.01" value={form.amount} onChange={field('amount')} required placeholder="0,00"
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <label className={labelCls}>Valor (R$)</label>
+              <input type="number" step="0.01" min="0.01" value={form.amount} onChange={field('amount')} required placeholder="0,00" className={inputCls} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Categoria</label>
-              <select value={form.category_id} onChange={field('category_id')} required
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <label className={labelCls}>Categoria</label>
+              <select value={form.category_id} onChange={field('category_id')} required className={inputCls}>
                 <option value="">Selecione...</option>
                 {filtered.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Descrição</label>
-              <input type="text" value={form.description} onChange={field('description')} placeholder="Ex: Supermercado"
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <label className={labelCls}>Descrição</label>
+              <input type="text" value={form.description} onChange={field('description')} placeholder="Ex: Supermercado" className={inputCls} />
             </div>
-            <div className="flex gap-3 pt-1">
-              <button type="button" onClick={() => setShowModal(false)}
-                className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">
-                Cancelar
-              </button>
-              <button type="submit" disabled={saving}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-medium transition-colors">
-                {saving ? 'Salvando...' : 'Salvar'}
-              </button>
-            </div>
+            <button
+              type="submit" disabled={saving}
+              className="w-full py-3.5 rounded-2xl text-white font-bold disabled:opacity-50 active:scale-[0.98] transition-transform"
+              style={{ background: 'linear-gradient(135deg, var(--grad-from), var(--grad-to))', boxShadow: '0 4px 20px var(--grad-glow)' }}
+            >
+              {saving ? 'Salvando...' : 'Salvar'}
+            </button>
           </form>
         </Modal>
       )}
+    </div>
+  )
+}
+
+function SwipeRow({ tx, onDelete }) {
+  const [swipeX,   setSwipeX]   = useState(0)
+  const [dragging, setDragging] = useState(false)
+  const startX = useRef(0)
+  const CatIcon = getCatIcon(tx.category_name)
+
+  const onTouchStart = (e) => {
+    startX.current = e.touches[0].clientX
+    setDragging(true)
+  }
+  const onTouchMove = (e) => {
+    if (!dragging) return
+    const dx = Math.min(0, Math.max(-76, e.touches[0].clientX - startX.current))
+    setSwipeX(dx)
+  }
+  const onTouchEnd = () => {
+    setDragging(false)
+    setSwipeX(swipeX < -38 ? -76 : 0)
+  }
+
+  const onMouseDown = (e) => {
+    startX.current = e.clientX
+    setDragging(true)
+  }
+  const onMouseMove = (e) => {
+    if (!dragging) return
+    const dx = Math.min(0, Math.max(-76, e.clientX - startX.current))
+    setSwipeX(dx)
+  }
+  const onMouseUp = () => {
+    setDragging(false)
+    setSwipeX(swipeX < -38 ? -76 : 0)
+  }
+
+  const isIncome = tx.type === 'income'
+
+  return (
+    <div
+      className="relative rounded-2xl overflow-hidden"
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
+      onMouseLeave={onMouseUp}
+    >
+      {/* Delete zone */}
+      <button
+        onClick={onDelete}
+        className="absolute inset-y-0 right-0 w-[76px] bg-rose-600 flex items-center justify-center rounded-r-2xl"
+      >
+        <Trash2 size={20} className="text-white" />
+      </button>
+
+      {/* Row */}
+      <div
+        className="relative bg-[#131318] rounded-2xl px-4 py-3.5 flex items-center gap-3 select-none"
+        style={{
+          transform: `translateX(${swipeX}px)`,
+          transition: dragging ? 'none' : 'transform 0.2s ease',
+        }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onMouseDown={onMouseDown}
+      >
+        {/* Category icon */}
+        <div
+          className="w-11 h-11 rounded-2xl shrink-0 flex items-center justify-center"
+          style={{ backgroundColor: (tx.category_color || '#6366f1') + '25' }}
+        >
+          <CatIcon size={18} style={{ color: tx.category_color || '#6366f1' }} />
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <p className="text-[14px] font-semibold text-white truncate">{tx.description || '—'}</p>
+          <p className="text-[11px] text-zinc-500 mt-0.5 truncate">
+            {tx.category_name || '—'} · {fmtDate(tx.date)}
+          </p>
+        </div>
+
+        {/* Amount */}
+        <p className={`text-[15px] font-bold tabular-nums shrink-0 ${isIncome ? 'text-emerald-400' : 'text-rose-400'}`}>
+          {isIncome ? '+' : '−'}{fmt(tx.amount)}
+        </p>
+      </div>
     </div>
   )
 }
