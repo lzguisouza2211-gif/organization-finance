@@ -1,4 +1,5 @@
-import { LayoutDashboard, ArrowLeftRight, Target, CreditCard, CalendarCheck } from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, Target, CreditCard, CalendarCheck, LogOut } from 'lucide-react'
+import { supabase } from '../lib/supabase'
 
 const nav = [
   { id: 'dashboard',    label: 'Dashboard',    Icon: LayoutDashboard },
@@ -7,6 +8,8 @@ const nav = [
   { id: 'goals',        label: 'Metas',        Icon: Target          },
   { id: 'debts',        label: 'Dívidas',      Icon: CreditCard      },
 ]
+
+const signOut = () => supabase.auth.signOut()
 
 export default function Sidebar({ currentPage, onNavigate }) {
   return (
@@ -42,8 +45,14 @@ export default function Sidebar({ currentPage, onNavigate }) {
           ))}
         </nav>
 
-        <div className="px-6 py-4 border-t border-gray-800">
-          <p className="text-gray-600 text-xs text-center">v1.0.0 · offline</p>
+        <div className="px-3 py-4 border-t border-gray-800">
+          <button
+            onClick={signOut}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-400 hover:bg-gray-800 hover:text-red-400 transition-all"
+          >
+            <LogOut size={17} strokeWidth={2} />
+            Sair
+          </button>
         </div>
       </aside>
 
@@ -62,6 +71,13 @@ export default function Sidebar({ currentPage, onNavigate }) {
               <span className="leading-none">{label}</span>
             </button>
           ))}
+          <button
+            onClick={signOut}
+            className="flex-1 flex flex-col items-center justify-center gap-1 py-2.5 text-xs font-medium text-gray-500 active:text-red-400 transition-colors"
+          >
+            <LogOut size={20} strokeWidth={1.8} />
+            <span className="leading-none">Sair</span>
+          </button>
         </div>
       </nav>
     </>

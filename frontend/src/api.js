@@ -1,4 +1,5 @@
 import { supabase } from './lib/supabase'
+import { uid } from './contexts/AuthContext'
 
 // ── Utilitários ───────────────────────────────────────────────────────────────
 const pad = (n) => String(n).padStart(2, '0')
@@ -28,6 +29,7 @@ function flattenInst(i) {
 
 // Garante que existem instâncias do mês atual para cada conta fixa ativa
 async function ensureMonthInstances(month) {
+  const userId = await uid()
   const [y, m] = month.split('-').map(Number)
   const lastDay = new Date(y, m, 0).getDate()
 
@@ -45,6 +47,7 @@ async function ensureMonthInstances(month) {
       amount: b.amount,
       due_date: `${month}-${pad(Math.min(b.due_day, lastDay))}`,
       paid: false,
+      user_id: userId,
     }))
 
   if (toInsert.length > 0) {
@@ -95,9 +98,10 @@ export const api = {
   },
 
   createTransaction: async (d) => {
+    const userId = await uid()
     const { data: row } = await supabase
       .from('transactions')
-      .insert({ date: d.date, amount: d.amount, type: d.type, category_id: d.category_id || null, description: d.description || null })
+      .insert({ date: d.date, amount: d.amount, type: d.type, category_id: d.category_id || null, description: d.description || null, user_id: userId })
       .select('*, categories(name, color)')
       .single()
     return flattenTx(row)
@@ -121,7 +125,8 @@ export const api = {
   },
 
   createGoal: async (d) => {
-    const { data: row } = await supabase.from('goals').insert(d).select().single()
+    const userId = await uid()
+    const { data: row } = await supabase.from('goals').insert({ ...d, user_id: userId }).select().single()
     return row
   },
 
@@ -142,7 +147,8 @@ export const api = {
   },
 
   createDebt: async (d) => {
-    const { data: row } = await supabase.from('debts').insert(d).select().single()
+    const userId = await uid()
+    const { data: row } = await supabase.from('debts').insert({ ...d, user_id: userId }).select().single()
     return row
   },
 
@@ -163,8 +169,9 @@ export const api = {
   },
 
   createFixedBill: async (d) => {
+    const userId = await uid()
     const { data: bill } = await supabase
-      .from('fixed_bills').insert({ ...d, active: true }).select().single()
+      .from('fixed_bills').insert({ ...d, active: true, user_id: userId }).select().single()
 
     // Cria instância para o mês atual imediatamente
     const month = new Date().toISOString().slice(0, 7)
@@ -176,6 +183,7 @@ export const api = {
       amount: bill.amount,
       due_date: `${month}-${pad(Math.min(bill.due_day, lastDay))}`,
       paid: false,
+      user_id: userId,
     })
     return bill
   },
