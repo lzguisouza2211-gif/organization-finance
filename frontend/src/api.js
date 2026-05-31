@@ -58,16 +58,29 @@ async function ensureMonthInstances(month) {
 // ── API pública ───────────────────────────────────────────────────────────────
 export const api = {
 
-  // Dashboard — agrega transações no cliente (simples e sem RPC)
+  // Dashboard — agrega transações + contas fixas pagas no cliente
   getDashboard: async (month) => {
-    const { data: txs = [] } = await supabase
-      .from('transactions')
-      .select('amount, type, category_id, categories(name, color)')
-      .gte('date', `${month}-01`)
-      .lt('date', `${nextMonthStr(month)}-01`)
+    const [{ data: txs = [] }, { data: paidBills = [] }, { data: goals = [] }] = await Promise.all([
+      supabase
+        .from('transactions')
+        .select('amount, type, category_id, categories(name, color)')
+        .gte('date', `${month}-01`)
+        .lt('date', `${nextMonthStr(month)}-01`),
+      supabase
+        .from('bill_instances')
+        .select('amount, paid_amount')
+        .eq('reference_month', month)
+        .eq('paid', true),
+      supabase
+        .from('goals')
+        .select('name, target_amount, current_amount, deadline')
+        .order('deadline', { nullsFirst: false }),
+    ])
 
-    const income   = txs.filter(t => t.type === 'income') .reduce((s, t) => s + Number(t.amount), 0)
-    const expenses = txs.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0)
+    const income      = txs.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0)
+    const txExpenses  = txs.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0)
+    const billExpenses = paidBills.reduce((s, b) => s + Number(b.paid_amount ?? b.amount), 0)
+    const expenses    = txExpenses + billExpenses
 
     const catMap = {}
     txs.filter(t => t.type === 'expense').forEach(t => {
@@ -77,11 +90,16 @@ export const api = {
       catMap[t.category_id].total += Number(t.amount)
     })
 
+    if (billExpenses > 0) {
+      catMap['__bills__'] = { name: 'Contas Fixas', color: '#a78bfa', total: billExpenses }
+    }
+
     return {
       income,
       expenses,
       balance: income - expenses,
       byCategory: Object.values(catMap).sort((a, b) => b.total - a.total),
+      goals,
     }
   },
 
@@ -102,6 +120,16 @@ export const api = {
     const { data: row } = await supabase
       .from('transactions')
       .insert({ date: d.date, amount: d.amount, type: d.type, category_id: d.category_id || null, description: d.description || null, user_id: userId })
+      .select('*, categories(name, color)')
+      .single()
+    return flattenTx(row)
+  },
+
+  updateTransaction: async (id, d) => {
+    const { data: row } = await supabase
+      .from('transactions')
+      .update({ date: d.date, amount: d.amount, type: d.type, category_id: d.category_id || null, description: d.description || null })
+      .eq('id', id)
       .select('*, categories(name, color)')
       .single()
     return flattenTx(row)
@@ -241,4 +269,21 @@ export const api = {
       .single()
     return flattenInst(row)
   },
+
+  // ── Fin AI (novas rotas — não alteram nada acima) ─────────────────────────
+  aiAnalyze: async (month) => {
+    const res = await fetch('/api/ai/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: month ? JSON.stringify({ month }) : undefined,
+    })
+    return res.json()
+  },
+
+  aiChat: (messages) =>
+    fetch('/api/ai/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages }),
+    }).then(r => r.json()),
 }

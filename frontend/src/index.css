@@ -2,29 +2,238 @@
 @tailwind components;
 @tailwind utilities;
 
-* {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+/* ── Google Font ─────────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
+/* ── Design Tokens ───────────────────────────────────────────────────────────── */
 :root {
-  --grad-from: #6366f1;
-  --grad-to:   #a855f7;
-  --grad-glow: rgba(139,92,246,0.40);
+  /* Backgrounds */
+  --bg:        #2B2B2B;
+  --surface:   #353535;
+  --surface-2: #3E4C59;
+
+  /* Borders */
+  --border:    #4A4E44;
+  --border-2:  #4E5A68;
+
+  /* Text */
+  --text:      #FAF9F6;
+  --text-dim:  #9A9A8C;
+
+  /* Brand */
+  --primary:       #B08D57;
+  --primary-light: #C9A86C;
+  --secondary:     #3E4C59;
+
+  /* States */
+  --success: #10B981;
+  --danger:  #EF4444;
+  --warning: #F59E0B;
+
+  /* Gradient (used throughout the app via var(--grad-from/to)) */
+  --grad-from: #B08D57;
+  --grad-to:   #3E4C59;
+  --grad-glow: rgba(176, 141, 87, 0.40);
+
+  /* Safe areas */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top:    env(safe-area-inset-top, 0px);
 }
 
-html, body { background: #050507; }
+/* ── Base ────────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+* { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+html, body { background: var(--bg); }
 
 body {
-  background-image: radial-gradient(120% 60% at 50% 0%, #14141c 0%, #060608 55%);
+  font-family: 'Inter', sans-serif;
+  background-image: radial-gradient(120% 60% at 50% 0%, #3E4040 0%, var(--bg) 55%);
   min-height: 100dvh;
+  overscroll-behavior: none;
+  color: var(--text);
 }
 
+/* Touch optimisation */
+button, a, input, select, textarea, label { touch-action: manipulation; }
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────────── */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 
+/* ── Form inputs ─────────────────────────────────────────────────────────────── */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 input[type="number"] { -moz-appearance: textfield; }
-
 input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(.6); }
+
+/* ── Safe area utilities ─────────────────────────────────────────────────────── */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.mb-safe { margin-bottom: env(safe-area-inset-bottom, 0px); }
+
+/* ── Focus ring (inputs + buttons) ──────────────────────────────────────────── */
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px rgba(176,141,87,0.20);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+/* ── Button active press ─────────────────────────────────────────────────────── */
+.btn-press:active { transform: scale(0.97); transition: transform 0.08s; }
+
+/* ── Ripple ──────────────────────────────────────────────────────────────────── */
+.ripple-wrapper { position: relative; overflow: hidden; }
+.ripple-wrapper::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(255,255,255,0.18) 0%, transparent 70%);
+  transform: scale(0);
+  opacity: 0;
+  transition: transform 0.4s ease, opacity 0.4s ease;
+}
+.ripple-wrapper:active::after { transform: scale(2.5); opacity: 1; transition: none; }
+
+/* ── Page transitions ────────────────────────────────────────────────────────── */
+.page-enter {
+  animation: fadeUp 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Stagger cascade ─────────────────────────────────────────────────────────── */
+.stagger-item { animation: fadeUp 0.3s ease both; }
+.stagger-item:nth-child(1)  { animation-delay: 0ms; }
+.stagger-item:nth-child(2)  { animation-delay: 50ms; }
+.stagger-item:nth-child(3)  { animation-delay: 100ms; }
+.stagger-item:nth-child(4)  { animation-delay: 150ms; }
+.stagger-item:nth-child(5)  { animation-delay: 200ms; }
+.stagger-item:nth-child(6)  { animation-delay: 250ms; }
+.stagger-item:nth-child(7)  { animation-delay: 300ms; }
+.stagger-item:nth-child(8)  { animation-delay: 350ms; }
+
+/* ── Skeleton shimmer ────────────────────────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 50%, var(--surface) 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+@keyframes shimmer {
+  from { background-position: -400px 0; }
+  to   { background-position:  400px 0; }
+}
+
+/* ── Glow pulse (Fin avatar) ─────────────────────────────────────────────────── */
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 12px 2px rgba(176,141,87,0.4); }
+  50%       { box-shadow: 0 0 28px 8px rgba(176,141,87,0.7); }
+}
+.glow-pulse { animation: pulseGlow 2.4s ease-in-out infinite; }
+
+/* ── Typing indicator dots ───────────────────────────────────────────────────── */
+@keyframes typingDot {
+  0%, 80%, 100% { transform: scale(1);   opacity: 0.4; }
+  40%           { transform: scale(1.5); opacity: 1; }
+}
+.typing-dot-1 { animation: typingDot 1.2s ease-in-out 0ms   infinite; }
+.typing-dot-2 { animation: typingDot 1.2s ease-in-out 200ms infinite; }
+.typing-dot-3 { animation: typingDot 1.2s ease-in-out 400ms infinite; }
+
+/* ── Online badge blink ──────────────────────────────────────────────────────── */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+.badge-online { animation: blink 1.8s ease-in-out infinite; }
+
+/* ── Modal scale-in ──────────────────────────────────────────────────────────── */
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.93) translateY(8px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0);   }
+}
+.modal-enter { animation: scaleIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* ── Toast slide-in ──────────────────────────────────────────────────────────── */
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(-20px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0)     scale(1); }
+}
+@keyframes toastOut {
+  from { opacity: 1; transform: translateY(0)     scale(1); }
+  to   { opacity: 0; transform: translateY(-20px) scale(0.95); }
+}
+.toast-enter { animation: toastIn  0.3s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.toast-exit  { animation: toastOut 0.25s ease both; }
+
+/* ── Sidebar nav hover slide ─────────────────────────────────────────────────── */
+.nav-item { position: relative; transition: background 0.2s, color 0.2s; }
+.nav-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%) scaleY(0);
+  width: 3px;
+  height: 60%;
+  border-radius: 0 4px 4px 0;
+  background: var(--primary-light);
+  transition: transform 0.2s ease;
+}
+.nav-item:hover::before { transform: translateY(-50%) scaleY(1); }
+.nav-item.active::before { transform: translateY(-50%) scaleY(1); }
+
+/* ── Reduced motion ──────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Gradient text ───────────────────────────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, var(--grad-from), var(--grad-to));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Card surface ────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+.card-2 {
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  border-radius: 16px;
+}
+
+/* ── Typewriter cursor ───────────────────────────────────────────────────────── */
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+.typewriter-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--primary-light);
+  margin-left: 2px;
+  vertical-align: middle;
+  animation: blink-cursor 0.8s step-end infinite;
+}

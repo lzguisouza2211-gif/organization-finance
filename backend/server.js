@@ -1,5 +1,7 @@
-const express = require('express');
-const cors    = require('cors');
+require('dotenv').config();
+const express   = require('express');
+const cors      = require('cors');
+const Anthropic = require('@anthropic-ai/sdk');
 const { db, save, nextId } = require('./database');
 
 const app  = express();
@@ -240,6 +242,211 @@ app.post('/api/bill-instances/:id/unpay', (req, res) => {
   db.billInstances[idx] = { ...db.billInstances[idx], paid: false, paid_at: null, paid_amount: null };
   save();
   res.json(withBillName(db.billInstances[idx]));
+});
+
+// ── AI ────────────────────────────────────────────────────────────────────────
+function fmtR(v) {
+  return Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function buildSystemPrompt() {
+  const now      = new Date();
+  const month    = now.toISOString().slice(0, 7);
+  const dataAtual = now.toLocaleDateString('pt-BR');
+  const mesAtual  = now.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+
+  const transactions   = db.transactions.filter(t => t.date.startsWith(month));
+  const billInstances  = db.billInstances.filter(i => i.reference_month === month);
+
+  const totalIncome    = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+  const totalExpense   = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  const totalPago      = billInstances.filter(i => i.paid).reduce((s, i) => s + (i.paid_amount || i.amount), 0);
+  const totalPendente  = billInstances.filter(i => !i.paid).reduce((s, i) => s + i.amount, 0);
+
+  const billName = (inst) => (db.fixedBills.find(b => b.id === inst.bill_id)?.name || '(conta)');
+
+  const debtLines = db.debts.length
+    ? db.debts.map(d => `- ${d.name}: total R$${fmtR(d.total_amount)} | pago R$${fmtR(d.paid_amount)} | restante R$${fmtR(d.total_amount - d.paid_amount)} | vence ${d.due_date || 'sem data'}`).join('\n')
+    : 'Nenhuma dívida cadastrada.';
+
+  const pagas     = billInstances.filter(i => i.paid).map(i => `${billName(i)} R$${fmtR(i.paid_amount || i.amount)}`).join(', ') || 'nenhuma';
+  const pendentes = billInstances.filter(i => !i.paid).map(i => `${billName(i)} R$${fmtR(i.amount)} vence ${i.due_date}`).join(', ') || 'nenhuma';
+
+  const txLines = transactions.length
+    ? transactions.map(t => `- ${t.date} | ${t.type === 'income' ? 'Entrada' : 'Saída'} R$${fmtR(t.amount)} | ${t.description || '(sem descrição)'}`).join('\n')
+    : 'Nenhuma transação neste mês.';
+
+  const goalLines = db.goals.length
+    ? db.goals.map(g => `- ${g.name}: meta R$${fmtR(g.target_amount)} | guardado R$${fmtR(g.current_amount)} | prazo ${g.deadline || 'sem prazo'}`).join('\n')
+    : 'Nenhuma meta cadastrada.';
+
+  return `PAPEL: Economista pessoal brasileiro. Seu nome é Fin.
+IDIOMA: Português brasileiro sempre.
+TOM: Profissional mas acessível. Sem termos técnicos desnecessários.
+DADOS FINANCEIROS (atualizados em ${dataAtual}):
+
+[DÍVIDAS]
+${debtLines}
+
+[CONTAS DO MÊS - ${mesAtual}]
+Pagas: ${pagas}
+Pendentes: ${pendentes}
+Total pago: R$${fmtR(totalPago)} | Total pendente: R$${fmtR(totalPendente)}
+
+[TRANSAÇÕES RECENTES]
+${txLines}
+Total entradas: R$${fmtR(totalIncome)} | Total saídas: R$${fmtR(totalExpense)}
+
+[METAS]
+${goalLines}
+
+REGRAS:
+- Nunca invente números
+- Sempre cite valores reais ao dar conselhos
+- Se faltar informação, peça ao usuário
+- Respostas do chat: máximo 5 linhas
+- Análise mensal: pode ser mais longa e detalhada`;
+}
+
+function buildPlanPrompt() {
+  const now = new Date();
+  const month = now.toISOString().slice(0, 7);
+
+  const transactions  = db.transactions.filter(t => t.date.startsWith(month));
+  const billInstances = db.billInstances.filter(i => i.reference_month === month);
+
+  const totalIncome  = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+  const totalExpense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+
+  const billName = (inst) => db.fixedBills.find(b => b.id === inst.bill_id)?.name || '(conta)';
+
+  const debtLines = db.debts.length
+    ? db.debts.map(d => `- ${d.name}: total R$${fmtR(d.total_amount)} | pago R$${fmtR(d.paid_amount)} | restante R$${fmtR(d.total_amount - d.paid_amount)} | parcelas: ${d.installments || 'N/A'}`).join('\n')
+    : 'Nenhuma dívida cadastrada.';
+
+  const pendentes = billInstances.filter(i => !i.paid)
+    .map(i => `- ${billName(i)}: R$${fmtR(i.amount)} vence ${i.due_date}`).join('\n') || 'Nenhuma pendente.';
+
+  const pagas = billInstances.filter(i => i.paid)
+    .map(i => `- ${billName(i)}: R$${fmtR(i.paid_amount || i.amount)} pago em ${i.paid_at}`).join('\n') || 'Nenhuma paga ainda.';
+
+  const expenseLines = transactions.filter(t => t.type === 'expense').map(t => {
+    const cat = db.categories.find(c => c.id === t.category_id);
+    return `- ${t.description || '(sem descrição)'}: R$${fmtR(t.amount)} (${cat?.name || 'Sem categoria'})`;
+  }).join('\n') || 'Nenhum gasto variável registrado.';
+
+  const goalLines = db.goals.length
+    ? db.goals.map(g => `- ${g.name}: meta R$${fmtR(g.target_amount)} | guardado R$${fmtR(g.current_amount)} | prazo ${g.deadline || 'sem prazo'}`).join('\n')
+    : 'Nenhuma meta cadastrada.';
+
+  const system = `PAPEL: Economista pessoal brasileiro. Nome: Fin.
+IDIOMA: Português brasileiro sempre.
+TOM: Direto, encorajador, baseado em dados reais.
+
+DADOS FINANCEIROS DO USUÁRIO:
+
+[RENDA]
+Receita do mês: R$${fmtR(totalIncome)}
+
+[DÍVIDAS]
+${debtLines}
+
+[CONTAS FIXAS PENDENTES]
+${pendentes}
+
+[CONTAS FIXAS PAGAS]
+${pagas}
+
+[GASTOS VARIÁVEIS DO MÊS]
+${expenseLines}
+Total gasto: R$${fmtR(totalExpense)}
+
+[METAS]
+${goalLines}
+
+REGRAS:
+- Use apenas os dados reais acima
+- Nunca invente valores
+- Seja específico com datas e valores
+- Tom encorajador mas realista`;
+
+  const user = `Gere um plano financeiro completo para este mês seguindo exatamente esta estrutura:
+
+💰 ORÇAMENTO DO MÊS
+Tabela com: Destino | Valor | Quando
+Mostre como distribuir a renda entre contas, dívidas, gastos variáveis e reserva.
+Calcule e mostre a sobra ao final.
+
+✅ METAS DO MÊS
+Liste metas concretas e alcançáveis divididas em:
+
+💳 Dívidas (quais pagar/quitar esse mês)
+🏠 Contas (metas de pagamento)
+📊 Gastos (limites por categoria)
+🐷 Reserva (quanto guardar)
+📋 Hábito (metas de comportamento financeiro)
+
+Cada meta deve ter checkbox [ ] e ser específica com valor ou ação clara.
+
+🏆 O QUE ESTE MÊS REPRESENTA
+Parágrafo motivacional mostrando o impacto real de cumprir o plano.
+Quantas dívidas serão quitadas, como o saldo devedor vai mudar, o que muda na vida financeira do usuário.
+Seja específico, use os dados reais, e termine com uma frase de incentivo.`;
+
+  return { system, user };
+}
+
+app.post('/api/ai/plan', async (req, res) => {
+  try {
+    const { system, user } = buildPlanPrompt();
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const msg = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 2048,
+      system,
+      messages: [{ role: 'user', content: user }],
+    });
+    res.json({ plan: msg.content[0].text });
+  } catch (err) {
+    console.error('[AI plan]', err.message);
+    res.status(500).json({ error: 'Erro ao gerar o plano. Verifique a chave ANTHROPIC_API_KEY.' });
+  }
+});
+
+app.post('/api/ai/analyze', async (req, res) => {
+  try {
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const msg = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1024,
+      system: buildSystemPrompt(),
+      messages: [{ role: 'user', content: 'Faça uma análise completa da minha situação financeira do mês atual.' }],
+    });
+    res.json({ analysis: msg.content[0].text });
+  } catch (err) {
+    console.error('[AI analyze]', err.message);
+    res.status(500).json({ error: 'Erro ao consultar a IA. Verifique a chave ANTHROPIC_API_KEY.' });
+  }
+});
+
+app.post('/api/ai/chat', async (req, res) => {
+  try {
+    const { messages } = req.body;
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ error: 'Campo messages inválido.' });
+    }
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const msg = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1024,
+      system: buildSystemPrompt(),
+      messages,
+    });
+    res.json({ reply: msg.content[0].text });
+  } catch (err) {
+    console.error('[AI chat]', err.message);
+    res.status(500).json({ error: 'Erro ao consultar a IA. Verifique a chave ANTHROPIC_API_KEY.' });
+  }
 });
 
 // ── Start ────────────────────────────────────────────────────────────────────

@@ -5,7 +5,7 @@ import Sheet from './Modal'
 const today = () => new Date().toISOString().slice(0, 10)
 const EMPTY = { date: today(), amount: '', type: 'expense', category_id: '', description: '' }
 
-const inputCls = 'w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-[15px] text-white placeholder-zinc-600 focus:outline-none focus:border-[var(--grad-to)]'
+const inputCls = 'w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-[16px] text-white placeholder-zinc-600 focus:outline-none focus:border-[var(--grad-to)]'
 const labelCls = 'block text-[12px] font-semibold text-zinc-400 mb-1.5'
 
 export default function NewTransactionSheet({ onClose, onSave }) {

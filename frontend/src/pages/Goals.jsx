@@ -2,14 +2,22 @@ import { useState, useEffect } from 'react'
 import { Plus, Pencil, Trash2, Target, CheckCircle2, PiggyBank } from 'lucide-react'
 import { api } from '../api'
 import Modal from '../components/Modal'
+import ProgressBar from '../components/ProgressBar'
+import AnimatedNumber from '../components/AnimatedNumber'
+import { SkeletonCard } from '../components/Skeleton'
 
-const fmt     = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
-const fmtDate = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR') : '—'
+const fmt = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
 
 const EMPTY = { name: '', target_amount: '', current_amount: '', deadline: '' }
 
-const inputCls = 'w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-[15px] text-white placeholder-zinc-600 focus:outline-none focus:border-[var(--grad-to)]'
-const labelCls = 'block text-[12px] font-semibold text-zinc-400 mb-1.5'
+const inputCls = 'w-full rounded-xl px-4 py-3 text-[15px] text-white placeholder-[var(--text-dim)] focus:outline-none transition-all'
+const labelCls = 'block text-[12px] font-semibold mb-1.5'
+
+function daysLeft(deadline) {
+  if (!deadline) return null
+  const diff = Math.ceil((new Date(deadline + 'T12:00:00') - new Date()) / (1000 * 60 * 60 * 24))
+  return diff
+}
 
 export default function Goals({ refreshKey }) {
   const [goals,     setGoals]     = useState([])
@@ -17,8 +25,12 @@ export default function Goals({ refreshKey }) {
   const [editing,   setEditing]   = useState(null)
   const [form,      setForm]      = useState(EMPTY)
   const [saving,    setSaving]    = useState(false)
+  const [loading,   setLoading]   = useState(true)
 
-  useEffect(() => { api.getGoals().then(setGoals) }, [refreshKey])
+  useEffect(() => {
+    setLoading(true)
+    api.getGoals().then(setGoals).finally(() => setLoading(false))
+  }, [refreshKey])
 
   const openAdd  = () => { setEditing(null); setForm(EMPTY); setShowModal(true) }
   const openEdit = (g) => {
@@ -63,107 +75,130 @@ export default function Goals({ refreshKey }) {
   const heroProgress = totalTarget > 0 ? Math.min((totalSaved / totalTarget) * 100, 100) : 0
 
   return (
-    <div className="px-4 pt-6 pb-6 sm:px-6 sm:pt-8">
+    <div className="px-4 pt-6 pb-6 sm:px-6 sm:pt-8 page-enter">
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-[22px] font-extrabold text-white">Metas</h1>
         <button
           onClick={openAdd}
-          className="h-9 px-4 rounded-full text-[13px] font-bold text-white flex items-center gap-1.5"
-          style={{ background: 'linear-gradient(135deg, var(--grad-from), var(--grad-to))' }}
+          className="h-9 px-4 rounded-full text-[13px] font-bold text-white flex items-center gap-1.5 btn-press ripple-wrapper"
+          style={{ background: 'linear-gradient(135deg, var(--grad-from), var(--grad-to))', boxShadow: '0 4px 16px var(--grad-glow)' }}
         >
           + Nova
         </button>
       </div>
 
       {/* Hero card */}
-      {goals.length > 0 && (
+      {!loading && goals.length > 0 && (
         <div
-          className="rounded-[28px] p-6 mb-5 relative overflow-hidden"
+          className="rounded-[28px] p-6 mb-5 relative overflow-hidden stagger-item"
           style={{
             background: 'linear-gradient(140deg, var(--grad-from), var(--grad-to))',
             boxShadow: '0 16px 48px var(--grad-glow)',
           }}
         >
-          <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white opacity-[0.08]" />
-          <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full bg-white opacity-[0.05]" />
-          <p className="text-[12px] font-semibold text-white/70 uppercase tracking-wide mb-1 relative">Total guardado</p>
-          <p className="text-[32px] font-extrabold text-white tabular-nums leading-none mb-3 relative">{fmt(totalSaved)}</p>
+          <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white opacity-[0.07] pointer-events-none" />
+          <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full bg-white opacity-[0.04] pointer-events-none" />
+          <p className="text-[12px] font-semibold text-white/70 uppercase tracking-wider mb-1 relative">Total guardado</p>
+          <AnimatedNumber
+            value={totalSaved}
+            format={fmt}
+            className="text-[32px] font-extrabold text-white tabular-nums leading-none mb-3 relative block"
+          />
           <div className="relative">
-            <div className="flex justify-between text-[11px] text-white/60 mb-1.5">
+            <div className="flex justify-between text-[11px] text-white/60 mb-2">
               <span>Meta total: {fmt(totalTarget)}</span>
-              <span>{Math.round(heroProgress)}%</span>
+              <span className="font-bold">{Math.round(heroProgress)}%</span>
             </div>
             <div className="h-2 rounded-full bg-white/20">
-              <div className="h-full rounded-full bg-white transition-all duration-500" style={{ width: `${heroProgress}%` }} />
+              <div className="h-full rounded-full bg-white transition-all duration-700" style={{ width: `${heroProgress}%` }} />
             </div>
           </div>
         </div>
       )}
 
-      {/* Goals list */}
-      {goals.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-zinc-600">
-          <Target size={48} className="mb-3" />
+      {/* Loading skeletons */}
+      {loading && (
+        <div className="sm:grid sm:grid-cols-2 sm:gap-4 space-y-3 sm:space-y-0">
+          <SkeletonCard /><SkeletonCard />
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!loading && goals.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-20" style={{ color: 'var(--text-dim)' }}>
+          <Target size={48} className="mb-3 opacity-40" />
           <p className="text-sm">Nenhuma meta cadastrada ainda</p>
         </div>
-      ) : (
+      )}
+
+      {/* Goals grid */}
+      {!loading && goals.length > 0 && (
         <div className="sm:grid sm:grid-cols-2 sm:gap-4 space-y-3 sm:space-y-0">
-          {goals.map(goal => {
+          {goals.map((goal, i) => {
             const progress  = Math.min((goal.current_amount / goal.target_amount) * 100, 100)
             const done      = progress >= 100
             const remaining = Math.max(goal.target_amount - goal.current_amount, 0)
+            const days      = daysLeft(goal.deadline)
             return (
               <div
                 key={goal.id}
-                className={`rounded-[22px] bg-zinc-900/70 border p-5 ${done ? 'border-emerald-500/30' : 'border-white/8'}`}
+                className="rounded-[22px] p-5 transition-all stagger-item"
+                style={{
+                  background: 'var(--surface)',
+                  border: `1px solid ${done ? 'rgba(16,185,129,0.3)' : 'var(--border)'}`,
+                  animationDelay: `${i * 50}ms`,
+                }}
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${done ? 'bg-emerald-500/20' : 'bg-white/8'}`}>
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                      style={{ background: done ? 'rgba(16,185,129,0.15)' : 'var(--surface-2)' }}
+                    >
                       {done
                         ? <CheckCircle2 size={18} className="text-emerald-400" />
-                        : <PiggyBank size={18} className="text-zinc-400" />
+                        : <PiggyBank size={18} style={{ color: 'var(--text-dim)' }} />
                       }
                     </div>
                     <div className="min-w-0">
                       <p className="text-[15px] font-bold text-white leading-tight truncate">{goal.name}</p>
                       {goal.deadline && (
-                        <p className="text-[11px] text-zinc-500 mt-0.5">Prazo: {fmtDate(goal.deadline)}</p>
+                        <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-dim)' }}>
+                          {days !== null && days > 0
+                            ? `${days} dias restantes`
+                            : days === 0
+                              ? 'Vence hoje!'
+                              : `Vencido há ${Math.abs(days)} dias`
+                          }
+                        </p>
                       )}
                     </div>
                   </div>
                   <div className="flex gap-1 shrink-0 ml-2">
-                    <button onClick={() => openEdit(goal)} className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-zinc-500 active:bg-white/10">
-                      <Pencil size={13} />
+                    <button onClick={() => openEdit(goal)}
+                      className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors"
+                      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                      <Pencil size={13} style={{ color: 'var(--text-dim)' }} />
                     </button>
-                    <button onClick={() => remove(goal.id)} className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-zinc-500 active:bg-rose-500/20">
-                      <Trash2 size={13} />
+                    <button onClick={() => remove(goal.id)}
+                      className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors"
+                      style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                      <Trash2 size={13} className="text-rose-400" />
                     </button>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[14px] font-bold text-white tabular-nums">{fmt(goal.current_amount)}</span>
-                  <span className="text-[12px] font-bold text-zinc-500 tabular-nums">{Math.round(progress)}%</span>
-                  <span className="text-[13px] text-zinc-500 tabular-nums">{fmt(goal.target_amount)}</span>
+                  <span className="text-[12px] font-bold tabular-nums" style={{ color: 'var(--text-dim)' }}>{Math.round(progress)}%</span>
+                  <span className="text-[13px] tabular-nums" style={{ color: 'var(--text-dim)' }}>{fmt(goal.target_amount)}</span>
                 </div>
 
-                {/* Progress bar */}
-                <div className="h-2 rounded-full bg-white/8 overflow-hidden mb-2">
-                  <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{
-                      width: `${progress}%`,
-                      background: done
-                        ? '#10b981'
-                        : 'linear-gradient(90deg, var(--grad-from), var(--grad-to))',
-                      boxShadow: done ? '0 0 8px rgba(16,185,129,0.4)' : '0 0 8px var(--grad-glow)',
-                    }}
-                  />
-                </div>
+                <ProgressBar value={progress} color={done ? 'success' : 'gradient'} className="mb-2" />
 
-                <p className={`text-[11px] font-semibold ${done ? 'text-emerald-400' : 'text-zinc-500'}`}>
+                <p className={`text-[11px] font-semibold ${done ? 'text-emerald-400' : ''}`}
+                  style={!done ? { color: 'var(--text-dim)' } : {}}>
                   {done ? 'Meta atingida!' : `faltam ${fmt(remaining)}`}
                 </p>
               </div>
@@ -176,29 +211,49 @@ export default function Goals({ refreshKey }) {
         <Modal title={editing ? 'Editar Meta' : 'Nova Meta'} onClose={() => setShowModal(false)}>
           <form onSubmit={handleSubmit} className="space-y-4 mt-2">
             <div>
-              <label className={labelCls}>Nome da meta</label>
-              <input type="text" value={form.name} onChange={field('name')} required placeholder="Ex: Fundo de emergência" className={inputCls} />
+              <label className={labelCls} style={{ color: 'var(--text-dim)' }}>Nome da meta</label>
+              <input type="text" value={form.name} onChange={field('name')} required
+                placeholder="Ex: Fundo de emergência"
+                className={inputCls}
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--border-2)' }}
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelCls}>Meta (R$)</label>
-                <input type="number" step="0.01" min="0.01" value={form.target_amount} onChange={field('target_amount')} required placeholder="0,00" className={inputCls} />
+                <label className={labelCls} style={{ color: 'var(--text-dim)' }}>Meta (R$)</label>
+                <input type="number" step="0.01" min="0.01" value={form.target_amount} onChange={field('target_amount')} required
+                  placeholder="0,00"
+                  className={inputCls}
+                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border-2)' }}
+                />
               </div>
               <div>
-                <label className={labelCls}>Atual (R$)</label>
-                <input type="number" step="0.01" min="0" value={form.current_amount} onChange={field('current_amount')} placeholder="0,00" className={inputCls} />
+                <label className={labelCls} style={{ color: 'var(--text-dim)' }}>Atual (R$)</label>
+                <input type="number" step="0.01" min="0" value={form.current_amount} onChange={field('current_amount')}
+                  placeholder="0,00"
+                  className={inputCls}
+                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border-2)' }}
+                />
               </div>
             </div>
             <div>
-              <label className={labelCls}>Prazo</label>
-              <input type="date" value={form.deadline} onChange={field('deadline')} className={inputCls} />
+              <label className={labelCls} style={{ color: 'var(--text-dim)' }}>Prazo</label>
+              <input type="date" value={form.deadline} onChange={field('deadline')}
+                className={inputCls}
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--border-2)' }}
+              />
             </div>
             <button
               type="submit" disabled={saving}
-              className="w-full py-3.5 rounded-2xl text-white font-bold disabled:opacity-50 active:scale-[0.98] transition-transform"
+              className="w-full py-3.5 rounded-2xl text-white font-bold disabled:opacity-50 btn-press ripple-wrapper"
               style={{ background: 'linear-gradient(135deg, var(--grad-from), var(--grad-to))', boxShadow: '0 4px 20px var(--grad-glow)' }}
             >
-              {saving ? 'Salvando...' : 'Salvar'}
+              {saving ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Salvando...
+                </span>
+              ) : 'Salvar'}
             </button>
           </form>
         </Modal>

@@ -10,9 +10,10 @@ import Transactions         from './pages/Transactions'
 import FixedBills           from './pages/FixedBills'
 import Goals                from './pages/Goals'
 import Debts                from './pages/Debts'
+import AiPage               from './pages/AiPage'
 import Login                from './pages/Login'
 
-const pages = { dashboard: Dashboard, transactions: Transactions, fixedbills: FixedBills, goals: Goals, debts: Debts }
+const pages = { dashboard: Dashboard, transactions: Transactions, fixedbills: FixedBills, goals: Goals, debts: Debts, ai: AiPage }
 
 function AppInner() {
   const { session } = useAuth()
@@ -22,8 +23,11 @@ function AppInner() {
 
   if (session === undefined) {
     return (
-      <div className="min-h-[100dvh] bg-[#050507] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-[100dvh] flex items-center justify-center" style={{ background: 'var(--bg)' }}>
+        <div
+          className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin"
+          style={{ borderColor: 'var(--primary)' }}
+        />
       </div>
     )
   }
@@ -34,29 +38,31 @@ function AppInner() {
 
   return (
     <>
-      {/* ── Mobile: phone shell ── */}
-      <div className="sm:hidden flex justify-center min-h-[100dvh] bg-[#050507]">
-        <div className="relative w-full max-w-app h-[100dvh] max-h-[932px] bg-[#0a0a0d] overflow-hidden">
-          <main className="absolute inset-0 overflow-y-auto no-scrollbar pb-32">
-            <Page refreshKey={refreshKey} />
-          </main>
-          <BottomNav currentPage={page} onNavigate={setPage} />
-          <FAB onClick={() => setTxSheet(true)} />
-        </div>
+      {/* ── Mobile ── */}
+      <div className="sm:hidden relative w-full h-[100dvh] overflow-hidden" style={{ background: 'var(--bg)' }}>
+        <main
+          className="absolute inset-0 overflow-y-auto no-scrollbar"
+          style={{ paddingBottom: 'calc(96px + env(safe-area-inset-bottom, 0px))' }}
+        >
+          <Page key={page} refreshKey={refreshKey} />
+        </main>
+        <BottomNav currentPage={page} onNavigate={setPage} />
+        <FAB onClick={() => setTxSheet(true)} />
       </div>
 
-      {/* ── Desktop: sidebar + content ── */}
-      <div className="hidden sm:flex h-[100dvh] bg-[#050507]">
+      {/* ── Desktop ── */}
+      <div className="hidden sm:flex h-[100dvh]" style={{ background: 'var(--bg)' }}>
         <DesktopSidebar currentPage={page} onNavigate={setPage} />
         <main className="flex-1 overflow-y-auto no-scrollbar">
-          <div className="max-w-5xl mx-auto">
-            <Page refreshKey={refreshKey} />
+          <div className="max-w-[1200px] mx-auto">
+            <Page key={page} refreshKey={refreshKey} />
           </div>
         </main>
+
         {/* Desktop FAB */}
         <button
           onClick={() => setTxSheet(true)}
-          className="fixed right-6 bottom-6 w-14 h-14 rounded-full grid place-items-center text-white z-40 active:scale-90 transition-transform"
+          className="fixed right-6 bottom-6 w-14 h-14 rounded-full grid place-items-center text-white z-40 btn-press ripple-wrapper"
           style={{
             background: 'linear-gradient(135deg, var(--grad-from), var(--grad-to))',
             boxShadow: '0 8px 32px var(--grad-glow)',
@@ -66,7 +72,6 @@ function AppInner() {
         </button>
       </div>
 
-      {/* Sheet (shared between layouts) */}
       {txSheet && (
         <NewTransactionSheet
           onClose={() => setTxSheet(false)}

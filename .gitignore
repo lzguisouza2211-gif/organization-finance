@@ -4,6 +4,7 @@ node_modules/
 # Variáveis de ambiente (nunca subir credenciais)
 .env.local
 .env.*.local
+.env
 
 # Build
 dist/
